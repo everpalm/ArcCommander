@@ -14,7 +14,6 @@
 ::fBE1pAF6MU+EWHreyGMiKzhbQQmDMm+/FIkw6fvvzeWItngNYOsyfcHZ26Du
 ::fBE1pAF6MU+EWHreyGMiKzhbQQmDMm+/FIkR+/74/7vW8gMZWO5f
 ::fBE1pAF6MU+EWHreyGMiKzhbQQmDMm+/FIkR+/74/bvW8gMZWO5f
-::fBE1pAF6MU+EWHreyGMiKzhbQQmDMm+/FIks+uf46vmU7EQTXYI=
 ::fBE1pAF6MU+EWHreyGMiKzhbQQmDMm+/FIkO7e/r4frJp1UYNA==
 ::fBE1pAF6MU+EWHreyGMiKzhbQQmDMm+/FIkv7fzY4OSBq0oIRuMrcYDVlLaPNIA=
 ::fBE1pAF6MU+EWHreyGMiKzhbQQmDMm+/FIkv7fzJ6u2OsVkPTaw9eZu7
@@ -34,19 +33,19 @@
 ::egkzugNsPRvcWATEpSI=
 ::dAsiuh18IRvcCxnZtBJQ
 ::cRYluBh/LU+EWAnk
-::YxY4rhs+aU+JeA==
-::cxY6rQJ7JhzQF1fEqQJQ
-::ZQ05rAF9IBncCkqN+0xwdVs0
-::ZQ05rAF9IAHYFVzEqQJQ
-::eg0/rx1wNQPfEVWB+kM9LVsJDGQ=
-::fBEirQZwNQPfEVWB+kM9LVsJDGQ=
-::cRolqwZ3JBvQF1fEqQJQ
-::dhA7uBVwLU+EWDk=
-::YQ03rBFzNR3SWATElA==
-::dhAmsQZ3MwfNWATElA==
-::ZQ0/vhVqMQ3MEVWAtB9wSA==
-::Zg8zqx1/OA3MEVWAtB9wSA==
-::dhA7pRFwIByZRRnk
+::YxY4rhs+aU+IeA==
+::cxY6rQJ7JhzQF1fEqQJgZksaH0rSXA==
+::ZQ05rAF9IBncCkqN+0xwdVsEAlTMbyXqZg==
+::ZQ05rAF9IAHYFVzEqQIROhh3QwmPPWW+A6d8
+::eg0/rx1wNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
+::fBEirQZwNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
+::cRolqwZ3JBvQF1fEqQIROhh3QwmPPWW+A6d8
+::dhA7uBVwLU+EWHeh1yI=
+::YQ03rBFzNR3SWATE2mcTSA==
+::dhAmsQZ3MwfNWATE2mcTSA==
+::ZQ0/vhVqMQ3MEVWAtB9wAhpGQwri
+::Zg8zqx1/OA3MEVWAtB9wAhpGQwri
+::dhA7pRFwIByZRRmi+1BwBRJXXguBNGKqRp0r2snSy4o=
 ::Zh4grVQjdCyDJHiW92E/JRZVQgCHLkK0FaEd5OT+/damsE4+W+8yeYHf36bAJfgWig==
 ::YB416Ek+ZG8=
 ::
@@ -110,13 +109,14 @@ if defined DBG_ELAPSED_SECOND (
 call GetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ProcessCount PROCESS_COUNT
 call GetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" SuspendCount SUSPEND_COUNT
 call GetRegistrySZ.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" LogPath LOG_PATH
-rem call GetRegistrySZ.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" IniFilePath INI_PATH
+if defined DBG_HALT_MODE (call GetRegistrySZ.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" HaltMode HALT_MODE)
 if defined DBG_ELAPSED_SECOND (call GetRegistrySZ.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond ELAPSED_SECOND)
 if defined LOG_INITIAL (
 	echo %date% %time% ArcCommander.bat: PROCESS_COUNT = %PROCESS_COUNT%, SUSPEND_COUNT = %SUSPEND_COUNT%
 	echo %date% %time% ArcCommander.bat: LOG_PATH = %LOG_PATH%
 	echo %date% %time% ArcCommander.bat: INI_PATH = %INI_PATH%
-	echo %date% %time% ArcCommnader.bat: ELAPSED_SECOND = %ELAPSED_SECOND%
+	echo %date% %time% ArcCommander.bat: ELAPSED_SECOND = %ELAPSED_SECOND%
+	echo %date% %time% ArcCommander.bat: HALT_MODE = %HALT_MODE%
 )
 
 set /a LINE_SKIP = %PROCESS_OFFSET% + %PROCESS_COUNT%
@@ -168,13 +168,13 @@ if defined DBG_ELAPSED_SECOND (set /a STOP_TIME=!STOP_TIME!-!ELAPSED_SECOND!)
 			if defined DBG_RAID_LEVEL (
 				shutdown -r -t 0
 			) else (
-				if "%MODE%" == "Reboot" (shutdown -r -t 0) else (shutdown -s -t 0)
+				shutdown -%HALT_MODE% -t 0
 			)	
 			exit /b 0
 		) else (
 			goto :INITIAL
 		)
-	) 
+	)
 	set "SUSPEND_COUNT=0"
 	set /a PROCESS_COUNT+=1
 	if defined LOG_SUSPEND (echo %date% %time% SUSPEND: PROCESS_COUNT = !PROCESS_COUNT!)
@@ -215,12 +215,9 @@ call GetLDConfig.bat !CTL! !LD! LD.STATUS PI.STATUS LD.ARRAY LD.LEVEL
 call GetPDConfig.bat !CTL! !CH! !PD! PD.STATE PD.SSD
 
 call GetTimeInSecond.bat NOW_TIME
-if defined DBG_ELAPSED_SECOND (
-	set /a ELAPSED_SECOND=!ELAPSED_SECOND!+!NOW_TIME!
-	set /a ELAPSED_SECOND=!ELAPSED_SECOND!-!START_TIME!
-)
+
 if defined DBG_TRANS_STATE (echo %date% %time% TRANS_STATE: NOW_TIME = !NOW_TIME!, STOP_TIME = !STOP_TIME!)
-if defined DBG_ELAPSED_SECOND (echo %date% %time% TRANS_STATE: ELAPSED_SECOND = !ELAPSED_SECOND!)
+
 timeout /nobreak %TRANS_PERIOD% > nul
 if !NOW_TIME! lss !STOP_TIME! goto :TRANS_STATE
 goto :eof
@@ -263,7 +260,14 @@ set LD=%2
 set CH=%3
 set PD=%4
 if defined LOG_SET_REBUILD (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Ready to reboot)
-if defined DBG_ELAPSED_SECOND (echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_QWORD !ELAPSED_SECOND!)
+
+if defined DBG_ELAPSED_SECOND (
+	call GetTimeInSecond.bat NOW_TIME
+	set /a ELAPSED_SECOND=!NOW_TIME!-!START_TIME!
+	echo %date% %time% Failed_TO_Rebuilding: STAR_TIME = !START_TIME!, NOW_TIME = !NOW_TIME!, ELAPSED_SECOND = !ELAPSED_SECOND!
+	echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_QWORD !ELAPSED_SECOND!
+	echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ProcessCount REG_DWORD !PROCESS_COUNT!
+)
 if defined DBG_SET_REBUILD (shutdown -r -t 30)
 pause
 exit
@@ -289,9 +293,10 @@ exit /b 0
 rem #############
 rem # PI status #
 rem #############
-:InProgress_TO_InProgress <CTL> <LD> <CH> <PD> <LEVEL>
-:Queued_TO_Completed <CTL> <LD> <CH> <PD> <LEVEL>
-:NA_TO_Completed <CTL> <LD> <CH> <PD> <LEVEL>
+:InProgress_TO_InProgress
+:Completed_TO_Completed 
+:Queued_TO_Completed
+:NA_TO_Completed
 if defined LOG_DO_NOTHING (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: Do nothing)
 exit /b 0
 
