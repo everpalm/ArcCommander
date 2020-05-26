@@ -34,8 +34,8 @@
 ::dAsiuh18IRvcCxnZtBJQ
 ::cRYluBh/LU+EWAnk
 ::YxY4rhs+aU+IeA==
-::cxY6rQJ7JhzQF1fEqQJgZksaH0rSXA==
-::ZQ05rAF9IBncCkqN+0xwdVsEAlTMbyXqZg==
+::cxY6rQJ7JhzQF1fEqQJgZksaGErSXA==
+::ZQ05rAF9IBncCkqN+0xwdVsEAlTMaCXqZg==
 ::ZQ05rAF9IAHYFVzEqQIROhh3QwmPPWW+A6d8
 ::eg0/rx1wNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
 ::fBEirQZwNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
@@ -44,7 +44,7 @@
 ::YQ03rBFzNR3SWATE2mcTSA==
 ::dhAmsQZ3MwfNWATE2mcTSA==
 ::ZQ0/vhVqMQ3MEVWAtB9wAhpGQwri
-::Zg8zqx1/OA3MEVWAtB9wAhpGQwri
+::Zg8zqx1/OA3MEVWAtB9wATRwa2Q=
 ::dhA7pRFwIByZRRmi+1BwBRJXXguBNGKqRp0r2snSy4o=
 ::Zh4grVQjdCyDJHiW92E/JRZVQgCHLkK0FaEd5OT+/damsE4+W+8yeYHf36bAJfgWig==
 ::YB416Ek+ZG8=
@@ -65,7 +65,7 @@ set "PROCESS_COUNT=0"
 set "PROCESS_OFFSET=2"
 set "HALT_TIMER=5"
 set "TRANS_PERIOD=2"
-set "ELAPSED_BUFFER=10"
+set "PENDING_TIME=30"
 
 call SetConfiguration.bat
 
@@ -102,7 +102,7 @@ if !errorlevel! neq 0 (
 if defined DBG_ELAPSED_SECOND (
 	reg query HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander /v ElapsedSecond
 	if !errorlevel! neq 0 (
-		call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_QWORD 0
+		call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_DWORD 0
 	)
 )
 
@@ -142,7 +142,13 @@ for /f "tokens=1-10 skip=%LINE_SKIP%" %%A in (%INI_PATH%) do (
 		echo %date% %time% RESUME: LD.STATUS = !LD.STATUS!, PI.STATUS = !PI.STATUS!, LD.ARRAY = !LD.ARRAY!, LD.LEVEL = !LD.LEVEL!
  		echo %date% %time% RESUME: PD.STATE = !PD.STATE!, PD.SSD = !PD.SSD!
 	)
-
+	if defined DBG_RAID_LEVEL (
+		if not "!DESIRE.LEVEL!" == "!LD.LEVEL!" (
+			echo %date% %time% RESUME: LD.LEVEL !LD.LEVEL! does not coincide with DESIRE.LEVEL !DESIRE.LEVEL!
+			pause
+			exit
+		)
+	)
 :ACTIVATE
 	call GetTimeInSecond.bat START_TIME
 	set /a STOP_TIME=!START_TIME!+!TTL!
@@ -157,7 +163,7 @@ if defined DBG_ELAPSED_SECOND (set /a STOP_TIME=!STOP_TIME!-!ELAPSED_SECOND!)
 		if !SUSPEND_COUNT! equ !NUM! (
 			set "SUSPEND_COUNT=0"
 			set /a PROCESS_COUNT+=1
-			if defined DBG_ELAPSED_SECOND (echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_QWORD 0)
+			if defined DBG_ELAPSED_SECOND (echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_DWORD 0)
 		)
 		if defined LOG_SUSPEND (echo %date% %time% SUSPEND: SUSPEND_COUNT = !SUSPEND_COUNT!, NUM = !NUM!)
 		echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" SuspendCount REG_DWORD !SUSPEND_COUNT!
@@ -166,9 +172,9 @@ if defined DBG_ELAPSED_SECOND (set /a STOP_TIME=!STOP_TIME!-!ELAPSED_SECOND!)
 		if defined DBG_SHUTDOWN_REBOOT (
 			timeout /nobreak %HALT_TIMER%
 			if defined DBG_RAID_LEVEL (
-				shutdown -r -t 0
-			) else (
 				shutdown -%HALT_MODE% -t 0
+			) else (
+				shutdown -r -t 0
 			)	
 			exit /b 0
 		) else (
@@ -184,7 +190,7 @@ echo %date% %time% ERROR_END: RTN = !RTN!
 if defined DBG_ERROR_END (echo %date% %time% ERROR_END: Clear counter)
 echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" SuspendCount REG_DWORD 0
 echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ProcessCount REG_DWORD 0
-if defined DBG_ELAPSED_SECOND (echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_QWORD 0)
+if defined DBG_ELAPSED_SECOND (echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_DWORD 0)
 if exist "c:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\MegaCommander - Shortcut.lnk" (
 	if defined DBG_ERROR_END (echo %date% %time% ERROR_END: Delete startup-link)
 	del "c:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\ArcCommander - Shortcut.lnk"
@@ -225,11 +231,15 @@ goto :eof
 rem ############
 rem # PD state #
 rem ############
+:Rebuilding_TO_Online
+if defined LOG_DO_NOTHING (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Do nothing, halt progressing)
+timeout /nobreak %PENDING_TIME% > nul
+goto :TRANS_STATE
+
 :Online_TO_Online
 :Failed_TO_Failed
-:Failed_TO_Online
 :Rebuilding_TO_Rebuilding
-:Rebuilding_TO_Online
+
 if defined LOG_DO_NOTHING (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Do nothing)
 exit /b 0
 
@@ -254,6 +264,7 @@ if defined LOG_SET_OFFLINE (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: !CH
 exit /b 0
 
 :Failed_TO_Rebuilding <CTL> <LD> <CH> <PD>
+:Failed_TO_Online
 setlocal
 set CTL=%1
 set LD=%2
@@ -265,7 +276,7 @@ if defined DBG_ELAPSED_SECOND (
 	call GetTimeInSecond.bat NOW_TIME
 	set /a ELAPSED_SECOND=!NOW_TIME!-!START_TIME!
 	echo %date% %time% Failed_TO_Rebuilding: STAR_TIME = !START_TIME!, NOW_TIME = !NOW_TIME!, ELAPSED_SECOND = !ELAPSED_SECOND!
-	echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_QWORD !ELAPSED_SECOND!
+	echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_DWORD !ELAPSED_SECOND!
 	echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ProcessCount REG_DWORD !PROCESS_COUNT!
 )
 if defined DBG_SET_REBUILD (shutdown -r -t 30)
@@ -283,7 +294,7 @@ if defined LOG_CREATE_LD (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: LEVEL
 if %LEVEL% equ 60 (
 	arcconf.exe create %CTL% logicaldrive MAX 60 %CH% 0 %CH% 1 %CH% 2 %CH% 3 %CH% 4 %CH% 5 %CH% 6 %CH% 7 noprompt
 ) else (
-	echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Please create LD before testing
+	echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Please create VD before testing
 	pause
 	exit 
 )
@@ -330,13 +341,16 @@ if defined LOG_HALT_CC (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: Halt Cons
 arcconf.exe consistencycheck %CTL% off
 set RTN=%errorlevel%
 if defined LOG_HALT_CC (echo %date% %time% RTN = %RTN%)
-if %RTN% equ 0 (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Consistency Check halts)
-if %RTN% equ 2 (
-	echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! PI status repeats, command abort
+if %RTN% equ 0 (
+	echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Consistency Check halts
+rem if %RTN% equ 2 (
+rem	echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! PI status repeats, command abort
+rem	timeout /nobreak %PENDING_TIME%
+rem	goto :TRANS_STATE
 ) else (
 	echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Reboot to update PI status
-	if defined DBG_ELAPSED_SECOND (echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_QWORD !ELAPSED_SECOND!)
-	shutdown -r -t %ELAPSED_BUFFER%
+	if defined DBG_ELAPSED_SECOND (echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_DWORD !ELAPSED_SECOND!)
+	shutdown -r -t %PENDING_TIME%
 	pause	
 	exit
 )
