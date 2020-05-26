@@ -35,8 +35,8 @@
 ::dAsiuh18IRvcCxnZtBJQ
 ::cRYluBh/LU+EWAnk
 ::YxY4rhs+aU+IeA==
-::cxY6rQJ7JhzQF1fEqQJgZksaGUrSXA==
-::ZQ05rAF9IBncCkqN+0xwdVsEAlTMaSXqZg==
+::cxY6rQJ7JhzQF1fEqQJgZksaGkrSXA==
+::ZQ05rAF9IBncCkqN+0xwdVsEAlTMaiXqZg==
 ::ZQ05rAF9IAHYFVzEqQIROhh3QwmPPWW+A6d8
 ::eg0/rx1wNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
 ::fBEirQZwNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
@@ -44,7 +44,7 @@
 ::dhA7uBVwLU+EWHeh1yI=
 ::YQ03rBFzNR3SWATE2mcTSA==
 ::dhAmsQZ3MwfNWATE2mcTSA==
-::ZQ0/vhVqMQ3MEVWAtB9wAhpGQwri
+::ZQ0/vhVqMQ3MEVWAtB9wAhpGQwrCH2O/CLJ8
 ::Zg8zqx1/OA3MEVWAtB9wATRwa2Q=
 ::dhA7pRFwIByZRRmi+1BwBRJXXguBNGKqRp0r2snSy4o=
 ::Zh4grVQjdCyDJHiW92E/JRZVQgCHLkK0FaEd5OT+/damsE4+W+8yeYHf36bAJfgWig==
@@ -66,7 +66,7 @@ set "PROCESS_COUNT=0"
 set "PROCESS_OFFSET=2"
 set "HALT_TIMER=5"
 set "TRANS_PERIOD=2"
-set "PENDING_TIME=30"
+set "PENDING_TIME=10"
 
 call SetConfiguration.bat
 
@@ -161,7 +161,7 @@ for /f "tokens=1-10 skip=%LINE_SKIP%" %%A in (%INI_PATH%) do (
 :ACTIVATE
 	call GetTimeInSecond.bat START_TIME
 	set /a STOP_TIME=!START_TIME!+!TTL!
-if defined DBG_ELAPSED_SECOND (set /a STOP_TIME=!STOP_TIME!-!ELAPSED_SECOND!)
+	if defined DBG_ELAPSED_SECOND (set /a STOP_TIME=!STOP_TIME!-!ELAPSED_SECOND!)
 	if defined DBG_ACTIVATE (echo %date% %time% ACTIVATE: START_TIME = !START_TIME!, STOP_TIME = !STOP_TIME!, TTL = !TTL!)
 	call :TRANS_STATE
 :REPORT
@@ -283,8 +283,11 @@ set PD=%4
 if defined LOG_SET_REBUILD (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Ready to reboot)
 
 if defined DBG_ELAPSED_SECOND (
+	timeout /nobreak %TRANS_PERIOD% > nul
 	call GetTimeInSecond.bat NOW_TIME
-	set /a ELAPSED_SECOND=!NOW_TIME!-!START_TIME!
+	rem set /a ELAPSED_SECOND=!NOW_TIME!-!START_TIME!
+	set /a ELAPSED_SECOND+=!NOW_TIME!
+	set /a ELAPSED_SECOND=!ELAPSED_SECOND!-!START_TIME!
 	echo %date% %time% Failed_TO_Rebuilding: STAR_TIME = !START_TIME!, NOW_TIME = !NOW_TIME!, ELAPSED_SECOND = !ELAPSED_SECOND!
 	echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_DWORD !ELAPSED_SECOND!
 	echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ProcessCount REG_DWORD !PROCESS_COUNT!
@@ -316,8 +319,7 @@ rem # PI status #
 rem #############
 :InProgress_TO_InProgress
 :Completed_TO_Completed 
-:Queued_TO_Completed
-:NA_TO_Completed
+
 if defined LOG_DO_NOTHING (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: Do nothing)
 exit /b 0
 
