@@ -20,6 +20,7 @@
 ::fBE1pAF6MU+EWHreyGMiKzhbQQmDMm+/FIkP/Ofp7viE7EkRWII=
 ::fBE1pAF6MU+EWHreyGMiKzhbQQmDMm+/FIkP/Ofp7OaO7EgFUYI=
 ::fBE1pAF6MU+EWHreyGMiKzhbQQmDMm+/FIkP/Ofp7OaO9BlTUfo6GA==
+::fBE1pAF6MU+EWHreyGMiKzhbQQmDMm+/FIk77fzay8mIrEsUU6w9eZu7
 ::YAwzoRdxOk+EWAjk
 ::fBw5plQjdCyDJHiW92E/JRZVQgCHLlebFLY/5+X27uSDp19QXeEwdsHS2bvu
 ::YAwzuBVtJxjWCl3EqQJgSA==
@@ -34,8 +35,8 @@
 ::dAsiuh18IRvcCxnZtBJQ
 ::cRYluBh/LU+EWAnk
 ::YxY4rhs+aU+IeA==
-::cxY6rQJ7JhzQF1fEqQJgZksaGErSXA==
-::ZQ05rAF9IBncCkqN+0xwdVsEAlTMaCXqZg==
+::cxY6rQJ7JhzQF1fEqQJgZksaGUrSXA==
+::ZQ05rAF9IBncCkqN+0xwdVsEAlTMaSXqZg==
 ::ZQ05rAF9IAHYFVzEqQIROhh3QwmPPWW+A6d8
 ::eg0/rx1wNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
 ::fBEirQZwNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
@@ -68,6 +69,12 @@ set "TRANS_PERIOD=2"
 set "PENDING_TIME=30"
 
 call SetConfiguration.bat
+
+if not exist "c:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\ArcCommander - Shortcut.lnk" (
+	echo %date% %time% ArcCommander.bat: Please install ArcCommander with ArcInstaller
+	pause
+	exit
+)
 
 if defined DBG_BGT_DELAY (
 	call LastBootUpTime.bat LAST_BOOTUP_TIME
@@ -136,11 +143,13 @@ for /f "tokens=1-10 skip=%LINE_SKIP%" %%A in (%INI_PATH%) do (
 	if defined LOG_RAID_LEVEL (echo %date% %time% RESUME: DESIRE.LEVEL = !DESIRE.LEVEL!) else (echo %date% %time% RESUME: MODE = !MODE!)
 	call GetLDConfig.bat !CTL! !LD! LD.STATUS PI.STATUS LD.ARRAY LD.LEVEL
 	call GetPDConfig.bat !CTL! !CH! !PD! PD.STATE PD.SSD
+	if defined DBG_GET_AD_CONFIG (call GetADConfig.bat !CTL! AD.TEMPERATURE)
 
 	if defined LOG_RESUME (
 		echo %date% %time% RESUME: DESIRE.STATE = !DESIRE.STATE!, DESIRE.PI = !DESIRE.PI!
 		echo %date% %time% RESUME: LD.STATUS = !LD.STATUS!, PI.STATUS = !PI.STATUS!, LD.ARRAY = !LD.ARRAY!, LD.LEVEL = !LD.LEVEL!
  		echo %date% %time% RESUME: PD.STATE = !PD.STATE!, PD.SSD = !PD.SSD!
+		echo %date% %time% RESUME: AD.TEMPERATURE = !AD.TEMPERATURE!
 	)
 	if defined DBG_RAID_LEVEL (
 		if not "!DESIRE.LEVEL!" == "!LD.LEVEL!" (
@@ -191,7 +200,7 @@ if defined DBG_ERROR_END (echo %date% %time% ERROR_END: Clear counter)
 echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" SuspendCount REG_DWORD 0
 echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ProcessCount REG_DWORD 0
 if defined DBG_ELAPSED_SECOND (echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_DWORD 0)
-if exist "c:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\MegaCommander - Shortcut.lnk" (
+if exist "c:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\ArcCommander - Shortcut.lnk" (
 	if defined DBG_ERROR_END (echo %date% %time% ERROR_END: Delete startup-link)
 	del "c:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\ArcCommander - Shortcut.lnk"
 )
@@ -210,6 +219,7 @@ set "RTN="
 if defined LOG_GET_LOG (echo %date% %time% GET_LOG: PROCESS_COUNT = %PROCESS_COUNT%, SUSPEND_COUNT = %SUSPEND_COUNT%)
 mkdir %LOG_PATH%\Log%PROCESS_COUNT%-%SUSPEND_COUNT%
 arcconf savesupportarchive %LOG_PATH%\Log%PROCESS_COUNT%-%SUSPEND_COUNT%
+if defined DBG_GET_AD_CONFIG (echo %date% %time% Temperature: !AD.TEMPERATURE! > %LOG_PATH%\Tmp%PROCESS_COUNT%-%SUSPEND_COUNT%.log)
 exit /b 0
 
 :TRANS_STATE
@@ -330,6 +340,8 @@ if %RTN% equ 2 (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Command
 exit /b 0
 
 :InProgress_TO_Completed <CTL> <LD> <CH> <PD> <LEVEL>
+:Queued_TO_Completed <CTL> <LD> <CH> <PD> <LEVEL>
+:NA_TO_Completed <CTL> <LD> <CH> <PD> <LEVEL>
 setlocal
 set "RTN="
 set CTL=%1
@@ -341,15 +353,16 @@ if defined LOG_HALT_CC (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: Halt Cons
 arcconf.exe consistencycheck %CTL% off
 set RTN=%errorlevel%
 if defined LOG_HALT_CC (echo %date% %time% RTN = %RTN%)
-if %RTN% equ 0 (
-	echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Consistency Check halts
-rem if %RTN% equ 2 (
-rem	echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! PI status repeats, command abort
-rem	timeout /nobreak %PENDING_TIME%
-rem	goto :TRANS_STATE
+if %RTN% equ 0 (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Consistency Check halts)
+if %RTN% equ 2 (
+	echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Repetitive PI status, progress continues
+	timeout /nobreak %PENDING_TIME%
 ) else (
 	echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Reboot to update PI status
-	if defined DBG_ELAPSED_SECOND (echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_DWORD !ELAPSED_SECOND!)
+	if defined DBG_ELAPSED_SECOND (
+		echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_DWORD !ELAPSED_SECOND!
+		echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ProcessCount REG_DWORD !PROCESS_COUNT!
+	)
 	shutdown -r -t %PENDING_TIME%
 	pause	
 	exit
