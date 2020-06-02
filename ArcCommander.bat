@@ -35,8 +35,8 @@
 ::dAsiuh18IRvcCxnZtBJQ
 ::cRYluBh/LU+EWAnk
 ::YxY4rhs+aU+IeA==
-::cxY6rQJ7JhzQF1fEqQJgZksaG0rSXA==
-::ZQ05rAF9IBncCkqN+0xwdVsEAlTMayXqZg==
+::cxY6rQJ7JhzQF1fEqQJgZksaFErSXA==
+::ZQ05rAF9IBncCkqN+0xwdVsEAlTMZCXqZg==
 ::ZQ05rAF9IAHYFVzEqQIROhh3QwmPPWW+A6d8
 ::eg0/rx1wNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
 ::fBEirQZwNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
@@ -67,9 +67,9 @@ set "PROCESS_OFFSET=2"
 set "HALT_TIMER=5"
 set "TRANS_PERIOD=2"
 set "PENDING_TIME=10"
-set "VERSION=0.0.7.0"
+set "ARC_VERSION=0.0.8.0"
 
-if defined LOG_VERSION (echo %date% %time% VERSION = %VERSION%)
+if defined LOG_VERSION (echo %date% %time% ARC_VERSION = %ARC_VERSION%)
 
 call SetConfiguration.bat
 
@@ -221,7 +221,8 @@ set SUSPEND_COUNT=%2
 set "RTN="
 if defined LOG_GET_LOG (echo %date% %time% GET_LOG: PROCESS_COUNT = %PROCESS_COUNT%, SUSPEND_COUNT = %SUSPEND_COUNT%)
 mkdir %LOG_PATH%\Log%PROCESS_COUNT%-%SUSPEND_COUNT%
-arcconf savesupportarchive %LOG_PATH%\Log%PROCESS_COUNT%-%SUSPEND_COUNT%
+arcconf.exe savesupportarchive %LOG_PATH%\LOG%PROCESS_COUNT%-%SUSPEND_COUNT%
+if defined DBG_CLEAR_LOG (arcconf.exe getlogs !CTL! event clear)
 if defined DBG_GET_AD_CONFIG (echo %date% %time% Temperature: !AD.TEMPERATURE! >> %LOG_PATH%\LOG%PROCESS_COUNT%-%SUSPEND_COUNT%.log)
 exit /b 0
 
@@ -296,12 +297,13 @@ if defined DBG_ELAPSED_SECOND (
 	echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond REG_DWORD !ELAPSED_SECOND!
 	echo y|call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ProcessCount REG_DWORD !PROCESS_COUNT!
 )
-if defined DBG_SET_REBUILD (shutdown -r -t 30)
+if defined DBG_SET_REBUILD (shutdown -r -t %PENDING_TIME%)
 pause
 exit
 
 :Ready_TO_Online <CTL> <LD> <CH> <PD> <LEVEL>
 :Ready_TO_Failed <CTL> <LD> <CH> <PD> <LEVEL>
+:Ready_TO_Rebuilding <CTL> <LD> <CH> <PD> <LEVEL>
 set CTL=%1
 set LD=%2
 set CH=%3
@@ -311,7 +313,8 @@ if defined LOG_CREATE_LD (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: LEVEL
 if %LEVEL% equ 60 (
 	arcconf.exe create %CTL% logicaldrive MAX 60 %CH% 0 %CH% 1 %CH% 2 %CH% 3 %CH% 4 %CH% 5 %CH% 6 %CH% 7 noprompt
 ) else (
-	echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Please create VD before testing
+rem	echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Please create VD before testing
+	echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Target PD is not in the disk array
 	pause
 	exit 
 )
@@ -327,7 +330,6 @@ rem #############
 if defined LOG_DO_NOTHING (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: Do nothing)
 exit /b 0
 
-:Completed_TO_InProgress <CTL> <LD> <CH> <PD> <LEVEL>
 :Queued_TO_InProgress <CTL> <LD> <CH> <PD> <LEVEL>
 :NA_TO_InProgress <CTL> <LD> <CH> <PD> <LEVEL>
 setlocal
