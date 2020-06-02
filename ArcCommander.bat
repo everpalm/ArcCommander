@@ -35,8 +35,8 @@
 ::dAsiuh18IRvcCxnZtBJQ
 ::cRYluBh/LU+EWAnk
 ::YxY4rhs+aU+IeA==
-::cxY6rQJ7JhzQF1fEqQJgZksaFErSXA==
-::ZQ05rAF9IBncCkqN+0xwdVsEAlTMZCXqZg==
+::cxY6rQJ7JhzQF1fEqQJgZksaHVTMbAs=
+::ZQ05rAF9IBncCkqN+0xwdVsEAlTMbTv0VtU=
 ::ZQ05rAF9IAHYFVzEqQIROhh3QwmPPWW+A6d8
 ::eg0/rx1wNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
 ::fBEirQZwNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
@@ -67,11 +67,11 @@ set "PROCESS_OFFSET=2"
 set "HALT_TIMER=5"
 set "TRANS_PERIOD=2"
 set "PENDING_TIME=10"
-set "ARC_VERSION=0.0.8.0"
-
-if defined LOG_VERSION (echo %date% %time% ARC_VERSION = %ARC_VERSION%)
+set "ARC_VERSION=0.0.10.0"
+set "PARITY_TIME=300"
 
 call SetConfiguration.bat
+if defined LOG_VERSION (echo %date% %time% ARC_VERSION = %ARC_VERSION%)
 
 if not exist "c:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\ArcCommander - Shortcut.lnk" (
 	echo %date% %time% ArcCommander.bat: Please install ArcCommander with ArcInstaller
@@ -116,17 +116,26 @@ if defined DBG_ELAPSED_SECOND (
 	)
 )
 
+if defined DBG_PARITY_FLAG (
+	reg query HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander /v ParityFlag
+	if !errorlevel! neq 0 (
+		call SetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ParityFlag REG_DWORD 0
+	)
+)
+
 call GetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ProcessCount PROCESS_COUNT
 call GetRegistry.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" SuspendCount SUSPEND_COUNT
 call GetRegistrySZ.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" LogPath LOG_PATH
 if defined DBG_HALT_MODE (call GetRegistrySZ.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" HaltMode HALT_MODE)
 if defined DBG_ELAPSED_SECOND (call GetRegistrySZ.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ElapsedSecond ELAPSED_SECOND)
+if defined DBG_PARITY_FLAG (call GetRegistrySZ.bat "HKEY_LOCAL_MACHINE\SOFTWARE\NECTA\ArcCommander" ParityFlag PARITY_FLAG)
 if defined LOG_INITIAL (
 	echo %date% %time% ArcCommander.bat: PROCESS_COUNT = %PROCESS_COUNT%, SUSPEND_COUNT = %SUSPEND_COUNT%
 	echo %date% %time% ArcCommander.bat: LOG_PATH = %LOG_PATH%
 	echo %date% %time% ArcCommander.bat: INI_PATH = %INI_PATH%
 	echo %date% %time% ArcCommander.bat: ELAPSED_SECOND = %ELAPSED_SECOND%
 	echo %date% %time% ArcCommander.bat: HALT_MODE = %HALT_MODE%
+	echo %date% %time% ArcCommander.bat: PARITY_FLAG = %PARITY_FLAG%
 )
 
 set /a LINE_SKIP = %PROCESS_OFFSET% + %PROCESS_COUNT%
@@ -220,7 +229,7 @@ set PROCESS_COUNT=%1
 set SUSPEND_COUNT=%2
 set "RTN="
 if defined LOG_GET_LOG (echo %date% %time% GET_LOG: PROCESS_COUNT = %PROCESS_COUNT%, SUSPEND_COUNT = %SUSPEND_COUNT%)
-mkdir %LOG_PATH%\Log%PROCESS_COUNT%-%SUSPEND_COUNT%
+mkdir %LOG_PATH%\LOG%PROCESS_COUNT%-%SUSPEND_COUNT%
 arcconf.exe savesupportarchive %LOG_PATH%\LOG%PROCESS_COUNT%-%SUSPEND_COUNT%
 if defined DBG_CLEAR_LOG (arcconf.exe getlogs !CTL! event clear)
 if defined DBG_GET_AD_CONFIG (echo %date% %time% Temperature: !AD.TEMPERATURE! >> %LOG_PATH%\LOG%PROCESS_COUNT%-%SUSPEND_COUNT%.log)
@@ -248,8 +257,11 @@ rem ############
 :Rebuilding_TO_Online
 if defined LOG_DO_NOTHING (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Do nothing, halt progressing)
 timeout /nobreak %PENDING_TIME% > nul
-call GetPDConfig.bat !CTL! !CH! !PD! PD.STATE PD.SSD
-goto :TRANS_STATE
+if defined DBG_PARITY_FLAG (
+	echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: !CH!:!PD! PARITY_FLAG = !PARITY_FLAG!
+	if !PARTIY_FLAG! equ 0 (set /a PARITY_FLAG+=1)
+)
+goto :RESUME
 
 :Online_TO_Online
 :Failed_TO_Failed
@@ -258,9 +270,13 @@ goto :TRANS_STATE
 if defined LOG_DO_NOTHING (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Do nothing)
 exit /b 0
 
+:Completed_TO_InProgress <CTL> <LD> <CH> <PD>
+if defined LOG_KICK_CC (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: Rebuild drive before Consistency Check)
+
 :Online_TO_Failed <CTL> <LD> <CH> <PD>
 :Rebuilding_TO_Failed <CTL> <LD> <CH> <PD>
 :Online_TO_Rebuilding <CTL> <LD> <CH> <PD>
+:AUTO_TO_Rebuilding <CTL> <LD> <CH> <PD>
 setlocal
 set CTL=%1
 set LD=%2
@@ -275,7 +291,6 @@ for /f "tokens=3 skip=3" %%A in ('arcconf.exe setstate %CTL% device %CH% %PD% dd
 )
 :BREAK_Online_TO_Failed
 if defined LOG_SET_OFFLINE (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: !CH!:!PD! failed >> %LOG_PATH%\LOG%PROCESS_COUNT%-%SUSPEND_COUNT%.log)
-
 exit /b 0
 
 :Failed_TO_Rebuilding <CTL> <LD> <CH> <PD>
@@ -313,7 +328,6 @@ if defined LOG_CREATE_LD (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: LEVEL
 if %LEVEL% equ 60 (
 	arcconf.exe create %CTL% logicaldrive MAX 60 %CH% 0 %CH% 1 %CH% 2 %CH% 3 %CH% 4 %CH% 5 %CH% 6 %CH% 7 noprompt
 ) else (
-rem	echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Please create VD before testing
 	echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Target PD is not in the disk array
 	pause
 	exit 
@@ -326,7 +340,6 @@ rem # PI status #
 rem #############
 :InProgress_TO_InProgress
 :Completed_TO_Completed 
-
 if defined LOG_DO_NOTHING (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: Do nothing)
 exit /b 0
 
@@ -339,12 +352,25 @@ set LD=%2
 set CH=%3
 set PD=%4
 set LEVEL=%5
-if defined LOG_KICK_CC (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: Kicking Consistency Check)
+if defined LOG_KICK_CC (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: Kicking Consistency Check...)
 arcconf.exe consistencycheck %CTL% on
 set RTN=%errorlevel%
-if defined LOG_KICK_CC (echo %date% %time% RTN = %RTN%)
-if %RTN% equ 1 (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Checking consistency >> %LOG_PATH%\LOG%PROCESS_COUNT%-%SUSPEND_COUNT%.log)
-if %RTN% equ 2 (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Command abort) else (exit /b 1)
+
+rem if defined LOG_KICK_CC (echo %date% %time% RTN = %RTN%)
+if %RTN% equ 0 (
+	echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Checking consistency >> %LOG_PATH%\LOG%PROCESS_COUNT%-%SUSPEND_COUNT%.log
+	if defined DBG_PARITY_FLAG (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: PARITY_FLAG = !PARITY_FLAG!)
+	timeout /nobreak %PARITY_TIME%
+)
+if %RTN% equ 2 (
+	echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Command abort, PARITY_FLAG = !PARITY_FLAG!
+	if !PARITY_FLAG! equ 0 (goto :Online_TO_Failed) else (set PARITY_FLAG=0)
+	timeout /nobreak %PARITY_TIME%
+) else (
+	echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Unknown PI state
+	pause
+	exit /b %RTN%
+)
 exit /b 0
 
 :InProgress_TO_Completed <CTL> <LD> <CH> <PD> <LEVEL>
