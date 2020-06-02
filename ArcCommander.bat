@@ -35,8 +35,8 @@
 ::dAsiuh18IRvcCxnZtBJQ
 ::cRYluBh/LU+EWAnk
 ::YxY4rhs+aU+IeA==
-::cxY6rQJ7JhzQF1fEqQJgZksaGkrSXA==
-::ZQ05rAF9IBncCkqN+0xwdVsEAlTMaiXqZg==
+::cxY6rQJ7JhzQF1fEqQJgZksaG0rSXA==
+::ZQ05rAF9IBncCkqN+0xwdVsEAlTMayXqZg==
 ::ZQ05rAF9IAHYFVzEqQIROhh3QwmPPWW+A6d8
 ::eg0/rx1wNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
 ::fBEirQZwNQPfEVWB+kM9LVsJDCWQP0i1C7gd5uz+/Yo=
@@ -67,6 +67,9 @@ set "PROCESS_OFFSET=2"
 set "HALT_TIMER=5"
 set "TRANS_PERIOD=2"
 set "PENDING_TIME=10"
+set "VERSION=0.0.7.0"
+
+if defined LOG_VERSION (echo %date% %time% VERSION = %VERSION%)
 
 call SetConfiguration.bat
 
@@ -219,7 +222,7 @@ set "RTN="
 if defined LOG_GET_LOG (echo %date% %time% GET_LOG: PROCESS_COUNT = %PROCESS_COUNT%, SUSPEND_COUNT = %SUSPEND_COUNT%)
 mkdir %LOG_PATH%\Log%PROCESS_COUNT%-%SUSPEND_COUNT%
 arcconf savesupportarchive %LOG_PATH%\Log%PROCESS_COUNT%-%SUSPEND_COUNT%
-if defined DBG_GET_AD_CONFIG (echo %date% %time% Temperature: !AD.TEMPERATURE! > %LOG_PATH%\Tmp%PROCESS_COUNT%-%SUSPEND_COUNT%.log)
+if defined DBG_GET_AD_CONFIG (echo %date% %time% Temperature: !AD.TEMPERATURE! >> %LOG_PATH%\LOG%PROCESS_COUNT%-%SUSPEND_COUNT%.log)
 exit /b 0
 
 :TRANS_STATE
@@ -244,6 +247,7 @@ rem ############
 :Rebuilding_TO_Online
 if defined LOG_DO_NOTHING (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Do nothing, halt progressing)
 timeout /nobreak %PENDING_TIME% > nul
+call GetPDConfig.bat !CTL! !CH! !PD! PD.STATE PD.SSD
 goto :TRANS_STATE
 
 :Online_TO_Online
@@ -269,7 +273,7 @@ for /f "tokens=3 skip=3" %%A in ('arcconf.exe setstate %CTL% device %CH% %PD% dd
 	if "!WORD1! !WORD2! !WORD3!" == "Command completed successfully." (goto :BREAK_Online_TO_Failed) else (exit /b 1)
 )
 :BREAK_Online_TO_Failed
-if defined LOG_SET_OFFLINE (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: !CH!:!PD! failed)
+if defined LOG_SET_OFFLINE (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: !CH!:!PD! failed >> %LOG_PATH%\LOG%PROCESS_COUNT%-%SUSPEND_COUNT%.log)
 
 exit /b 0
 
@@ -280,7 +284,7 @@ set CTL=%1
 set LD=%2
 set CH=%3
 set PD=%4
-if defined LOG_SET_REBUILD (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Ready to reboot)
+if defined LOG_SET_REBUILD (echo %date% %time% !PD.STATE!_TO_!DESIRE.STATE!: Ready to reboot >> %LOG_PATH%\LOG%PROCESS_COUNT%-%SUSPEND_COUNT%.log)
 
 if defined DBG_ELAPSED_SECOND (
 	timeout /nobreak %TRANS_PERIOD% > nul
@@ -337,7 +341,7 @@ if defined LOG_KICK_CC (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: Kicking C
 arcconf.exe consistencycheck %CTL% on
 set RTN=%errorlevel%
 if defined LOG_KICK_CC (echo %date% %time% RTN = %RTN%)
-if %RTN% equ 1 (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Checking consistency)
+if %RTN% equ 1 (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Checking consistency >> %LOG_PATH%\LOG%PROCESS_COUNT%-%SUSPEND_COUNT%.log)
 if %RTN% equ 2 (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Command abort) else (exit /b 1)
 exit /b 0
 
@@ -355,7 +359,7 @@ if defined LOG_HALT_CC (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: Halt Cons
 arcconf.exe consistencycheck %CTL% off
 set RTN=%errorlevel%
 if defined LOG_HALT_CC (echo %date% %time% RTN = %RTN%)
-if %RTN% equ 0 (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Consistency Check halts)
+if %RTN% equ 0 (echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Consistency Check halts >> %LOG_PATH%\LOG%PROCESS_COUNT%-%SUSPEND_COUNT%.log)
 if %RTN% equ 2 (
 	echo %date% %time% !PI.STATUS!_TO_!DESIRE.PI!: !CH!:!LD! Repetitive PI status, progress continues
 	timeout /nobreak %PENDING_TIME%

@@ -31,7 +31,7 @@ for /f "tokens=1-11 skip=7" %%A in ('arcconf.exe getconfig %CTL% ld %LD%') do (
 	)
 	if "!WORD1!" == "Parity" (
 		set PI.STATUS=!WORD5!
-		if "!PI.STATUS!" == "In" (set PI.STATUS=!WORD5! !WORD6!)
+		if "!PI.STATUS!" == "In" (set PI.STATUS=!WORD5!!WORD6!)
 		goto :BREAK_GET_LD_CONFIG
 	)
 )
